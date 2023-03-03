@@ -92,6 +92,8 @@ bot.command("apply", async (ctx) => {
       } catch (err) {
         await ctx.reply(err instanceof Error ? err.message : String(err));
       }
+    } else {
+      await ctx.reply("Reply a patch file.");
     }
   }
 });
