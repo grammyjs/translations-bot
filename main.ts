@@ -12,6 +12,23 @@ const bot = new Bot<FileFlavor<Context>>(env.BOT_TOKEN);
 
 bot.api.config.use(hydrateFiles(bot.token));
 
+async function applyFile(branch: string, filePath: string) {
+  const formData = new FormData();
+  formData.set("repository", env.REPOSITORY_CLONE_URL);
+  formData.set("branch", branch);
+  formData.set(
+    "url",
+    new URL(`/file/${encodeURIComponent(filePath)}`, env.BASE_URL).href,
+  );
+  const res = await fetch(env.PATCH_PUSHER_API_URL, {
+    method: "POST",
+    body: formData,
+  });
+  if (res.status != 200) {
+    throw new Error("Failed to submit the patch.");
+  }
+}
+
 bot.chatType(["group", "supergroup"]).filter((ctx) =>
   ctx.chat.id == env.CHAT_ID
 ).on("message:document", async (ctx) => {
@@ -36,7 +53,7 @@ bot.chatType(["group", "supergroup"]).filter((ctx) =>
     return;
   }
   let branch = "";
-  let res = await fetch(new URL(`pulls/${prNumber}`, env.REPOSITORY_API_URL));
+  const res = await fetch(new URL(`pulls/${prNumber}`, env.REPOSITORY_API_URL));
   if (res.status != 200) {
     await ctx.reply("Failed to fetch PR.");
     return;
@@ -51,22 +68,39 @@ bot.chatType(["group", "supergroup"]).filter((ctx) =>
     await ctx.reply("Could not resolve file path.");
     return;
   }
-  const formData = new FormData();
-  formData.set("repository", env.REPOSITORY_CLONE_URL);
-  formData.set("branch", branch);
-  formData.set(
-    "url",
-    new URL(`/file/${encodeURIComponent(file_path)}`, env.BASE_URL).href,
-  );
-  res = await fetch(env.PATCH_PUSHER_API_URL, {
-    method: "POST",
-    body: formData,
-  });
-  if (res.status == 200) {
+  try {
+    await applyFile(branch, file_path);
     await ctx.reply("Patch submitted.");
-  } else {
-    console.log(res.status);
-    await ctx.reply("Failed to submit the patch.");
+  } catch (err) {
+    await ctx.reply(err instanceof Error ? err.message : String(err));
+  }
+});
+
+bot.command("apply", async (ctx) => {
+  const branch = ctx.match;
+  if (!branch) {
+    await ctx.reply("Specify a branch name as an argument.");
+    return;
+  }
+  const document = ctx.msg.reply_to_message?.document;
+  if (!document) {
+    await ctx.reply("Reply a patch file.");
+    return;
+  }
+  if (!document.file_name?.endsWith(".patch")) {
+    await ctx.reply("The replied file does not have a .patch extension.");
+    return;
+  }
+  const { file_path } = await ctx.api.getFile(document.file_id);
+  if (!file_path) {
+    await ctx.reply("Could not resolve file path.");
+    return;
+  }
+  try {
+    await applyFile(branch, file_path);
+    await ctx.reply("Patch submitted.");
+  } catch (err) {
+    await ctx.reply(err instanceof Error ? err.message : String(err));
   }
 });
 
