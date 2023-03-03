@@ -77,7 +77,7 @@ bot.chatType(["group", "supergroup"]).filter((ctx) =>
 });
 
 bot.command("apply", async (ctx) => {
-  const branch = ctx.msg.text.split(/\s/)[1];
+  const branch = ctx.match;
   if (branch) {
     const fileId = ctx.msg.reply_to_message?.document?.file_id;
     if (fileId) {
