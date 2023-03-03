@@ -78,29 +78,29 @@ bot.chatType(["group", "supergroup"]).filter((ctx) =>
 
 bot.command("apply", async (ctx) => {
   const branch = ctx.match;
-  if (branch) {
-    const document = ctx.msg.reply_to_message?.document;
-    if (!document) {
-      await ctx.reply("Reply a patch file.");
-      return;
-    }
-    if (!document.file_name?.endsWith(".patch")) {
-      await ctx.reply("The replied file does not have a .patch extension.");
-      return;
-    }
-    const { file_path } = await ctx.api.getFile(document.file_id);
-    if (!file_path) {
-      await ctx.reply("Could not resolve file path.");
-      return;
-    }
-    try {
-      await applyFile(branch, file_path);
-      await ctx.reply("Patch submitted.");
-    } catch (err) {
-      await ctx.reply(err instanceof Error ? err.message : String(err));
-    }
-  } else {
+  if (!branch) {
     await ctx.reply("Specify a branch name as an argument.");
+    return;
+  }
+  const document = ctx.msg.reply_to_message?.document;
+  if (!document) {
+    await ctx.reply("Reply a patch file.");
+    return;
+  }
+  if (!document.file_name?.endsWith(".patch")) {
+    await ctx.reply("The replied file does not have a .patch extension.");
+    return;
+  }
+  const { file_path } = await ctx.api.getFile(document.file_id);
+  if (!file_path) {
+    await ctx.reply("Could not resolve file path.");
+    return;
+  }
+  try {
+    await applyFile(branch, file_path);
+    await ctx.reply("Patch submitted.");
+  } catch (err) {
+    await ctx.reply(err instanceof Error ? err.message : String(err));
   }
 });
 
